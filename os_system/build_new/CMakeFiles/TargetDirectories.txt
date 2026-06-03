@@ -1,0 +1,14 @@
+E:/os_system/os_system/os_system/build_new/CMakeFiles/myfs_core.dir
+E:/os_system/os_system/os_system/build_new/CMakeFiles/physical_test1.dir
+E:/os_system/os_system/os_system/build_new/CMakeFiles/physical_stage2_full_test.dir
+E:/os_system/os_system/os_system/build_new/CMakeFiles/block_alloc_test1.dir
+E:/os_system/os_system/os_system/build_new/CMakeFiles/block_map_test1.dir
+E:/os_system/os_system/os_system/build_new/CMakeFiles/raw_file_test1.dir
+E:/os_system/os_system/os_system/build_new/CMakeFiles/cache_test1.dir
+E:/os_system/os_system/os_system/build_new/CMakeFiles/fsck_test1.dir
+E:/os_system/os_system/os_system/build_new/CMakeFiles/journal_test1.dir
+E:/os_system/os_system/os_system/build_new/CMakeFiles/debug_test1.dir
+E:/os_system/os_system/os_system/build_new/CMakeFiles/physical_api_test1.dir
+E:/os_system/os_system/os_system/build_new/CMakeFiles/vfs_upper.dir
+E:/os_system/os_system/os_system/build_new/CMakeFiles/ALL_BUILD.dir
+E:/os_system/os_system/os_system/build_new/CMakeFiles/ZERO_CHECK.dir
