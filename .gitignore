@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+*.manifest
+*.spec
+
+# Virtual Environment
+venv/
+env/
+.venv/
+.env/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# C/C++ build artifacts (Visual Studio)
+Debug/
+Release/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+*.exe
+*.ilk
+*.pdb
+*.obj
+*.log
+*.tlog/
+*.recipe
+*.FileListAbsolute.txt
+*.VC.db
+*.VC.opendb
+*.sdf
+*.suo
+*.user
+*.tlog
+*.aps
+*.ipch
+*.lastbuildstate
+
+# Disk images
+*.img
+
+# Temp files
+tempCodeRunnerFile.py
