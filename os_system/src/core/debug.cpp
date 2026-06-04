@@ -15,6 +15,7 @@
 #include <cstring>
 #include <ctime>
 #include <unordered_set>
+#include <vector>
 
 /*
  * debug.cpp
@@ -664,6 +665,132 @@ int myfs_debug_hexdump_block(
     }
 
     printf("======================================\n\n");
+
+    return MYFS_OK;
+}
+
+int myfs_debug_blockmap_range(
+        myfs_block_t start_block,
+        uint32_t count
+) {
+    myfs_superblock_t *sb = myfs_super_get();
+
+    if (sb == nullptr) {
+        return MYFS_ERR_NOT_MOUNTED;
+    }
+
+    if (count == 0) {
+        printf("\n========== MYFS BLOCKMAP RANGE ==========\n");
+        printf("Range:        block %u ~ %u (0 blocks)\n", start_block, start_block);
+        printf("Used blocks:  0 / 0\n");
+        printf("========================================\n\n");
+        return MYFS_OK;
+    }
+
+    myfs_block_t end_block = start_block + (myfs_block_t) count;
+    if (start_block < sb->data_block_start || end_block > sb->total_blocks) {
+        return MYFS_ERR_INVALID_ARG;
+    }
+
+    /* Build the free block set by traversing the free chain */
+    std::vector<uint8_t> is_free(count, 0);
+
+    if (sb->free_blocks_count > 0 &&
+        sb->free_group_count > 0 &&
+        sb->free_group_count <= MYFS_FREE_GROUP_SIZE) {
+
+        std::vector<myfs_block_t> current_group;
+        current_group.reserve(sb->free_group_count);
+        for (uint32_t i = 0; i < sb->free_group_count; i++) {
+            current_group.push_back(sb->free_group[i]);
+        }
+
+        uint32_t counted = 0;
+        std::unordered_set<myfs_block_t> visited_group_blocks;
+
+        while (!current_group.empty() && counted < sb->free_blocks_count) {
+            uint32_t group_count = (uint32_t) current_group.size();
+            if (group_count == 0 || group_count > MYFS_FREE_GROUP_SIZE) {
+                break;
+            }
+
+            for (uint32_t i = 0; i < group_count && counted < sb->free_blocks_count; i++) {
+                myfs_block_t blk = current_group[i];
+                if (blk >= start_block && blk < end_block) {
+                    is_free[(size_t) (blk - start_block)] = 1;
+                }
+                counted++;
+            }
+
+            if (counted >= sb->free_blocks_count) {
+                break;
+            }
+
+            myfs_block_t next_group_block = current_group[0];
+            if (visited_group_blocks.count(next_group_block)) {
+                break;
+            }
+            visited_group_blocks.insert(next_group_block);
+
+            unsigned char buf[MYFS_BLOCK_SIZE];
+            int ret = myfs_disk_read_block(next_group_block, buf);
+            if (ret != MYFS_OK) {
+                break;
+            }
+
+            myfs_free_group_block_t group_block;
+            std::memset(&group_block, 0, sizeof(group_block));
+            std::memcpy(&group_block, buf, sizeof(group_block));
+
+            if (group_block.count == 0 || group_block.count > MYFS_FREE_GROUP_SIZE) {
+                break;
+            }
+
+            current_group.clear();
+            current_group.reserve(group_block.count);
+            for (uint32_t i = 0; i < group_block.count; i++) {
+                current_group.push_back(group_block.blocks[i]);
+            }
+        }
+    }
+
+    /* Collect used blocks */
+    std::vector<myfs_block_t> used_list;
+    for (uint32_t i = 0; i < count; i++) {
+        if (is_free[i] == 0) {
+            used_list.push_back(start_block + (myfs_block_t) i);
+        }
+    }
+
+    uint32_t used_count = (uint32_t) used_list.size();
+    uint32_t free_count = count - used_count;
+
+    printf("\n========== MYFS BLOCKMAP RANGE ==========\n");
+    printf("Range:        block %u ~ %u (%u blocks)\n",
+           start_block, end_block - 1, count);
+
+    if (count > 0) {
+        printf("Used blocks:  %u / %u (%.2f%%)\n",
+               used_count, count,
+               (double) used_count / (double) count * 100.0);
+        printf("Free blocks:  %u / %u (%.2f%%)\n",
+               free_count, count,
+               (double) free_count / (double) count * 100.0);
+    }
+
+    if (used_count > 0) {
+        printf("\nUsed block list:\n");
+        for (uint32_t i = 0; i < used_count; i++) {
+            printf("  %-8u", used_list[i]);
+            if ((i + 1) % 8 == 0 || i + 1 == used_count) {
+                printf("\n");
+            }
+        }
+    } else {
+        printf("\nAll blocks in this range are FREE.\n");
+    }
+
+    printf("========================================\n\n");
 
     return MYFS_OK;
 }

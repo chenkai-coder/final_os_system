@@ -256,7 +256,8 @@ class MainWindow(QMainWindow):
         action_recover = QAction("Recover", self)
         action_bmap = QAction("Bmap", self)
         action_inode = QAction("Inode", self)
-        
+        action_dirinode = QAction("Inode Info", self)
+
         action_chmod = QAction("Chmod", self)
         action_chown = QAction("Chown", self)
         action_useradd = QAction("UserAdd", self)
@@ -288,6 +289,7 @@ class MainWindow(QMainWindow):
         action_recover.triggered.connect(lambda: self._send("recover\n"))
         action_bmap.triggered.connect(self._prompt_bmap)
         action_inode.triggered.connect(self._prompt_inode)
+        action_dirinode.triggered.connect(self._prompt_dirinode)
         action_chmod.triggered.connect(self._prompt_chmod)
         action_chown.triggered.connect(self._prompt_chown)
         action_useradd.triggered.connect(self._prompt_useradd)
@@ -319,7 +321,8 @@ class MainWindow(QMainWindow):
         toolbar.addAction(action_recover)
         toolbar.addAction(action_bmap)
         toolbar.addAction(action_inode)
-        
+        toolbar.addAction(action_dirinode)
+
         users_toolbar = QToolBar("Users")
         self.addToolBar(users_toolbar)
         users_toolbar.addAction(action_chmod)
@@ -470,6 +473,11 @@ class MainWindow(QMainWindow):
         if not ok:
             return
         self._send(FSCommands.inode(inode_id))
+
+    def _prompt_dirinode(self) -> None:
+        path, ok = QInputDialog.getText(self, "Inode Info", "Path (empty=current dir, supports files & dirs):")
+        if ok:
+            self._send(FSCommands.dir_inode(path.strip()))
 
     def _prompt_chmod(self) -> None:
         text, ok = QInputDialog.getText(self, "chmod", "Path and mode (octal, e.g., /file 0755):")

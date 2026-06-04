@@ -1463,6 +1463,131 @@ void sys_dir() {
     }
 }
 
+static const char *inode_type_str(uint16_t type) {
+    switch (type) {
+        case MYFS_PHYS_INODE_DIR: return "DIR";
+        case MYFS_PHYS_INODE_FILE: return "FILE";
+        case MYFS_PHYS_INODE_SYMLINK: return "SYMLINK";
+        default: return "FREE";
+    }
+}
+
+static void print_inode_header(const std::string &path,
+                               const myfs_phys_inode_info_t &info) {
+    std::cout << std::endl;
+    std::cout << "========== Inode Info ==========" << std::endl;
+    std::cout << "Path:     " << path << std::endl;
+    std::cout << "Inode:    " << info.inode_id
+              << " (" << inode_type_str(info.type)
+              << ", mode=" << std::oct << info.mode << std::dec << ")"
+              << std::endl;
+    std::cout << "Size:     " << info.size << " bytes" << std::endl;
+    std::cout << "Blocks:   " << info.block_count << std::endl;
+    std::cout << "Uid/Gid:  " << info.uid << "/" << info.gid << std::endl;
+    std::cout << "Links:    " << info.link_count
+              << (info.type == MYFS_PHYS_INODE_DIR ? "  (normal: parent + . + subdirs' ..)" : "")
+              << std::endl;
+}
+
+static void sys_dir_inode(const char *path) {
+    if (ensure_mounted() != 0 || current_user_id < 0) {
+        return;
+    }
+
+    struct inode *target_node = nullptr;
+    std::string display_path;
+    bool need_iput = false;
+
+    if (path == nullptr || path[0] == '\0') {
+        /* Use current directory */
+        if (cur_path_inode == nullptr) {
+            std::cout << "[ERR] no current directory" << std::endl;
+            return;
+        }
+        target_node = cur_path_inode;
+        display_path = cur_path;
+    } else {
+        std::string abs_path = vfs_normalize_path(path);
+        target_node = namei(abs_path.c_str());
+        if (target_node == nullptr) {
+            std::cout << "[ERR] inode: path not found" << std::endl;
+            return;
+        }
+        need_iput = true;
+        display_path = abs_path;
+    }
+
+    myfs_phys_inode_info_t info;
+    if (myfs_phys_inode_get_info(target_node->i_num, &info) != MYFS_OK) {
+        std::cout << "[ERR] inode: cannot get inode info" << std::endl;
+        if (need_iput) iput(target_node);
+        return;
+    }
+
+    if (info.type == MYFS_PHYS_INODE_DIR) {
+        /* ---- Directory: show dir info + entry list ---- */
+        print_inode_header(display_path, info);
+        std::cout << "---------------------------------" << std::endl;
+
+        uint32_t entries_per_block = MYFS_BLOCK_SIZE / sizeof(vfs_dirent);
+        std::vector<vfs_dirent> entries(entries_per_block);
+        int entry_count = 0;
+
+        for (uint64_t offset = 0; offset < info.size; offset += MYFS_BLOCK_SIZE) {
+            if (vfs_read_dir_block(target_node->i_num, offset, entries.data(), entries_per_block) != 0) {
+                break;
+            }
+
+            for (uint32_t i = 0; i < entries_per_block; i++) {
+                if (vfs_dirent_is_free(entries[i])) {
+                    continue;
+                }
+
+                char name_buf[DIRSIZ + 1];
+                memset(name_buf, 0, sizeof(name_buf));
+                strncpy(name_buf, entries[i].d_name, DIRSIZ);
+
+                myfs_phys_inode_info_t entry_info;
+                if (myfs_phys_inode_get_info(entries[i].d_ino, &entry_info) != MYFS_OK) {
+                    std::cout << "  " << name_buf
+                              << "  -> inode " << entries[i].d_ino
+                              << "  (error)" << std::endl;
+                    entry_count++;
+                    continue;
+                }
+
+                std::cout << "  " << name_buf
+                          << "  -> inode " << entries[i].d_ino
+                          << "  " << inode_type_str(entry_info.type)
+                          << "  size=" << entry_info.size
+                          << "  blocks=" << entry_info.block_count
+                          << "  links=" << entry_info.link_count
+                          << std::endl;
+                entry_count++;
+            }
+        }
+
+        std::cout << "---------------------------------" << std::endl;
+        std::cout << "Total entries: " << entry_count << std::endl;
+        std::cout << "=================================" << std::endl;
+        std::cout << std::endl;
+
+        /* Emit SYNC so the Python UI tree panel refreshes */
+        sync_print("[SYNC] TREE_UPDATE " + display_path);
+
+    } else {
+        /* ---- File / Symlink: show detailed inode info ---- */
+        print_inode_header(display_path, info);
+
+        /* Also dump full inode details via the debug layer */
+        myfs_phys_debug_inode(target_node->i_num);
+
+        std::cout << std::endl;
+    }
+
+    if (need_iput) iput(target_node);
+}
+
 int sys_create(const char *path, unsigned short mode) {
     if (path == nullptr) {
         return -1;
@@ -1850,6 +1975,16 @@ int sys_link(const char *oldpath, const char *newpath) {
     }
 
     if (access(parent, FWRITE) != 0) {
+        iput(parent);
+        iput(old_node);
+        return -1;
+    }
+
+    /* Unix semantics: link() fails with EEXIST if target already exists */
+    struct inode *existing = namei(abs_newpath.c_str());
+    if (existing != nullptr) {
+        std::cout << "[ERR] link: target already exists: " << abs_newpath << std::endl;
+        iput(existing);
         iput(parent);
         iput(old_node);
         return -1;
@@ -2507,6 +2642,17 @@ int main() {
             } else {
                 sys_dir();
             }
+        } else if (cmd == "dirinode") {
+            if (current_user_id < 0) {
+                std::cout << "[ERR] not logged in" << std::endl;
+            } else {
+                std::string path;
+                if (ss >> path) {
+                    sys_dir_inode(path.c_str());
+                } else {
+                    sys_dir_inode(nullptr);
+                }
+            }
         } else if (cmd == "pwd") {
             std::cout << cur_path << std::endl;
         } else if (cmd == "statfs") {
@@ -2554,6 +2700,7 @@ int main() {
                 continue;
             }
             vfs_sync_used_blocks(start, cnt);
+            myfs_phys_debug_blockmap_range(start, cnt);
         } else if (cmd == "fsck") {
             if (ensure_mounted() != 0) { vfs_print_prompt(); continue; }
             myfs_phys_fsck_result_t result;

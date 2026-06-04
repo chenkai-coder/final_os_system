@@ -3,10 +3,10 @@
 Dependency: pip install PyQt5
 Run: python main.py
 
-Disk image: disk.img is located in the same directory as this script
-(fs_ui/disk.img). The C++ backend uses the relative path "disk.img",
+Disk image: disk.img is located in the backend directory
+(os_system/disk.img). The C++ backend uses the relative path "disk.img",
 which resolves correctly because the subprocess inherits the Python
-working directory.
+working directory (set to os_system/ below).
 """
 from __future__ import annotations
 
@@ -22,9 +22,9 @@ from ui.main_window import MainWindow
 
 
 def main() -> None:
-    # Change working directory to fs_ui/ so that the C++ subprocess
-    # resolves its relative "disk.img" path to the same file.
-    os.chdir(str(Path(__file__).resolve().parent))
+    # Change working directory to os_system/ so that the C++ subprocess
+    # resolves its relative "disk.img" path to the backend's disk image.
+    os.chdir(str(Path(__file__).resolve().parent / ".." / "os_system"))
 
     app = QApplication(sys.argv)
     app.setStyle("Fusion")

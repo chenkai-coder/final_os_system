@@ -457,6 +457,11 @@ int myfs_phys_debug_hexdump(
 
 int myfs_phys_debug_recover_blocks(void);
 
+int myfs_phys_debug_blockmap_range(
+        myfs_block_t start_block,
+        uint32_t count
+);
+
 
 /* ============================================================
  * 9. 错误信息

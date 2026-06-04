@@ -2,8 +2,9 @@
 
 Dependency: pip install PyQt5
 
-Disk image: "disk.img" — relative path resolved from the fs_ui/ directory.
-The C++ backend uses this same relative path.
+Disk image: "disk.img" — located in os_system/ (backend directory).
+The C++ backend uses this same relative path, resolved via the working
+directory set in main.py.
 """
 from pathlib import Path
 
@@ -52,6 +53,8 @@ COMMANDS = {
     "bmap": "bmap {} {}\n",
     "inode": "inode {}\n",
     "blockmap": "blockmap {} {}\n",
+    "dirinode": "dirinode {}\n",
+    "dirinode_cur": "dirinode\n",
     "chmod": "chmod {} {}\n",
     "chown": "chown {} {} {}\n",
     "useradd": "useradd {} {} {} {}\n",

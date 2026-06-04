@@ -655,6 +655,13 @@ int myfs_phys_debug_recover_blocks(void) {
     return myfs_debug_recover_blocks();
 }
 
+int myfs_phys_debug_blockmap_range(
+        myfs_block_t start_block,
+        uint32_t count
+) {
+    return myfs_debug_blockmap_range(start_block, count);
+}
+
 
 /* ============================================================
  * 9. 错误信息

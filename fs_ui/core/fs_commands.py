@@ -105,6 +105,12 @@ class FSCommands:
         return COMMANDS["blockmap"].format(start_block, count)
 
     @staticmethod
+    def dir_inode(path: str = "") -> str:
+        if path:
+            return COMMANDS["dirinode"].format(path)
+        return COMMANDS["dirinode_cur"]
+
+    @staticmethod
     def chmod(path: str, mode: str) -> str:
         return COMMANDS["chmod"].format(path, mode)
 

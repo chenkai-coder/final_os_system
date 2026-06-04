@@ -126,4 +126,25 @@ int myfs_debug_hexdump_block(
  */
 int myfs_debug_recover_blocks(void);
 
+/*
+ * 打印指定范围的块映射信息。
+ *
+ * 查询从 start_block 开始的 count 个块中哪些已被使用，
+ * 并以人类可读的格式打印。
+ *
+ * 输出示例：
+ * ========== MYFS BLOCKMAP RANGE ==========
+ * Range:        block 1282 ~ 1793 (512 blocks)
+ * Used blocks:  5 / 512 (0.98%)
+ * Free blocks:  507 / 512 (99.02%)
+ *
+ * Used block list:
+ *   1300  1350  1400  1450  1500
+ * =========================================
+ */
+int myfs_debug_blockmap_range(
+        myfs_block_t start_block,
+        uint32_t count
+);
+
 #endif
