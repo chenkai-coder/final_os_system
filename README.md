@@ -1,6 +1,8 @@
 # os_system
 A Visual Terminal Operating System
 
+🔗 GitHub: [https://github.com/chenkai-coder/final_os_system](https://github.com/chenkai-coder/final_os_system)
+
 # 操作系统课程设计 - 模拟 UNIX 多级目录文件系统 (VFS)
 
 ## 📖 项目简介
@@ -140,6 +142,34 @@ chown /test.txt 1000 1000
 ```
 
 ---
+
+## 物理层 API 参考
+
+底层各模块核心函数及其职责、参数、返回值与调用关系如下。
+
+| 函数名 | 所在文件 | 功能 | 主要参数 | 返回值/结果 | 调用关系 |
+|--------|----------|------|----------|-------------|----------|
+| `myfs_disk_read_block()` / `myfs_disk_write_block()` | disk.cpp | 按物理块号读取或写入磁盘镜像中的 4KB 块 | 物理块号、输入或输出缓冲区 | 成功返回 MYFS_OK，失败返回错误码 | 所有底层读写的基础接口 |
+| `myfs_layout_build()` | layout.cpp | 根据磁盘总块数和 inode 数量计算文件系统布局 | 总块数、inode 数量、布局输出结构 | 返回布局计算结果 | 格式化和超级块初始化依赖该接口 |
+| `myfs_super_init()` | superblock.cpp | 初始化超级块结构 | 超级块指针、总块数、inode 数 | 成功后生成内存超级块 | 格式化阶段调用 |
+| `myfs_super_load()` | superblock.cpp | 从磁盘第 0 块加载超级块 | 无 | 成功后内存中保存超级块状态 | 挂载阶段调用 |
+| `myfs_super_sync()` | superblock.cpp | 将内存超级块写回磁盘 | 无 | 成功后 block 0 更新 | 同步、卸载、资源计数变化时调用 |
+| `myfs_mkfs()` | mount.cpp | 格式化文件系统 | 磁盘路径、总块数、inode 数 | 成功后创建可挂载的磁盘镜像 | 负责串联布局、超级块、inode、日志和空闲块初始化 |
+| `myfs_mount()` / `myfs_umount()` | mount.cpp | 挂载和卸载文件系统 | 磁盘路径或无参数 | 成功后改变文件系统挂载状态 | 负责加载超级块和维护 clean/dirty 状态 |
+| `myfs_inode_alloc()` / `myfs_inode_free()` | inode.cpp | 分配或释放 inode | inode 类型、权限、用户、组、inode 编号等 | 返回分配结果或释放状态 | 与 inode 位图、inode 表、超级块和块释放逻辑相关 |
+| `myfs_inode_table_read()` / `myfs_inode_table_write()` | inode.cpp | 读取或写回指定 inode 表项 | inode 编号、inode 结构指针 | 成功后完成 inode 表访问 | inode 管理和块映射模块依赖该接口 |
+| `myfs_block_group_init()` | block_alloc.cpp | 初始化数据区成组链接法空闲块链 | 数据区起始块、数据块数量 | 成功后建立空闲块结构 | 格式化阶段调用 |
+| `myfs_block_alloc()` / `myfs_block_free()` | block_alloc.cpp | 分配或回收数据块 | 输出块号或待释放块号 | 返回分配或释放结果 | 被文件块映射、截断和 inode 释放过程调用 |
+| `myfs_inode_get_data_block()` | block_map.cpp | 将文件逻辑块号映射为物理块号，必要时分配新块 | inode 编号、逻辑块号、是否创建、输出物理块 | 返回映射结果和空洞状态 | 文件读写模块依赖该接口 |
+| `myfs_inode_release_data_block()` | block_map.cpp | 释放指定逻辑块对应的数据块 | inode 编号、逻辑块号 | 成功后释放对应块并更新索引 | 文件截断和删除相关流程调用 |
+| `myfs_inode_read_data()` / `myfs_inode_write_data()` | raw_file.cpp | 基于 inode 执行文件数据读取和写入 | inode 编号、偏移量、缓冲区、长度 | 返回实际读写字节数 | 调用块映射和缓存模块 |
+| `myfs_inode_truncate_data()` | raw_file.cpp | 调整文件大小并释放多余数据块 | inode 编号、新大小 | 成功后更新文件大小和块占用 | 文件删除、截断和覆盖写相关流程调用 |
+| `myfs_cache_read_block()` / `myfs_cache_write_block()` | cache.cpp | 通过缓存读写物理块 | 物理块号、缓冲区、元数据标志 | 成功后完成缓存访问 | 文件读写和部分元数据操作依赖该接口 |
+| `myfs_cache_flush_all()` | cache.cpp | 刷新所有脏缓存块 | 无 | 成功后脏数据写回磁盘 | 同步和卸载流程调用 |
+| `myfs_journal_write_metadata_block()` | journal.cpp | 以日志方式写入元数据块 | 目标块号、块内容 | 成功后完成日志保护写入 | inode 位图、inode 表和空闲组管理块写入使用 |
+| `myfs_journal_recover()` | journal.cpp | 根据 committed 日志重放元数据块 | 无 | 成功后恢复日志保护的元数据 | 异常后恢复或调试恢复时使用 |
+| `myfs_fsck_run()` | fsck.cpp | 执行物理一致性检查 | 检查选项、结果结构 | 返回检查过程状态，错误详情写入结果结构 | 用于检测超级块、inode、数据块和空闲链一致性 |
+| `myfs_phys_sync()` | physical_api.cpp | 对外封装文件系统同步操作 | 无 | 成功后缓存和超级块写回 | 供 VFS 层或测试入口调用 |
 
 ## 命令分类
 
