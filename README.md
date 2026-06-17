@@ -13,7 +13,7 @@ A Visual Terminal Operating System
 
 ### 🧱 硬核底层架构 (C++ Core)
 * **纯粹的字节映射**：完全脱离高级容器，基于严格对齐的 `struct` (`#pragma pack(1)`) 将内存数据精准映射至本地 `.img` 虚拟盘文件，支持系统退出保存与重启恢复。
-* **成组链接法 (Group Linked List)**：严格按照教科书实现了 50 块为一组的空闲盘块管理栈，保证在海量文件操作下依然维持极高的分配效率。
+* **成组链接法 (Group Linked List)**：严格按照教科书实现了 100 块为一组的空闲盘块管理栈，保证在海量文件操作下依然维持极高的分配效率。
 * **大文件混合索引 (Mixed Indexing)**：基于 `i_addr[10]` 实现了直接索引与一/二次间接索引，突破了单块文件大小的物理限制。
 * **Hash 链表加速**：在内存 i 节点管理中引入 Hash 链表，加速高频次的文件查找与缓存命中。
 
@@ -26,21 +26,57 @@ A Visual Terminal Operating System
 
 ## 🛠️ 环境依赖与快速启动
 
-本项目核心开发与编译环境推荐使用 Linux (如 Ubuntu) ，以获得最佳的终端 I/O 性能，或者Windows也可。
+### 环境要求
+- **编译器**：支持 C++17（MSVC 2019+ / MinGW-w64 / GCC 9+）
+- **构建工具**：CMake 3.10+
+- **Python**：Python 3.8+，需安装 PyQt5
+- **操作系统**：Windows（主要开发环境）或 Linux
 
-### 1. 编译核心系统 (后端)
+### 1. 编译核心系统（C++ 后端）
 ```bash
-# 进入项目目录，使用 Makefile 一键编译 C++ 源码
-make
+# 进入 C++ 项目目录
+cd os_system
 
-# 编译成功后将生成可执行文件 fs_core
-# (可选) 若仅需测试基础逻辑，可直接运行命令行版本：
-./fs_core
-# MYFS 文件系统 - 命令使用说明
+# === Windows (MSVC) ===
+cmake -B build -G "Visual Studio 17 2022"
+cmake --build build --config Debug
 
-## 项目简介
+# === Windows (MinGW-w64) ===
+cmake -B cmake-build-debug-mingw-msys2 -G "MinGW Makefiles"
+cmake --build cmake-build-debug-mingw-msys2
 
-MYFS 是一个教学用虚拟文件系统，包含：
+# === Linux ===
+cmake -B build -G "Unix Makefiles"
+cmake --build build
+
+# 编译产物：
+#   build/Debug/vfs_upper.exe          — VFS 主程序
+#   build/Debug/*_test1.exe            — 各模块单元测试
+#   build/Debug/myfs_core.lib          — 核心静态库
+#   cmake-build-debug-mingw-msys2/mkfs_myfs.exe  — 格式化工具
+```
+
+### 2. 运行命令行版本（终端模式）
+```bash
+# 直接运行 VFS 主程序，进入交互式终端
+./build/Debug/vfs_upper.exe
+
+# 首次使用需格式化磁盘（MinGW 构建中包含 mkfs_myfs.exe）
+./cmake-build-debug-mingw-msys2/mkfs_myfs.exe
+```
+
+### 3. 启动可视化界面（Python GUI）
+```bash
+cd fs_ui
+python main.py
+```
+GUI 启动后自动在后台挂载 C++ 核心进程，通过 stdin/stdout 管道通信，支持磁盘热力图、文件树、终端面板。
+
+---
+
+## 系统概述
+
+MYFS 是一个教学用虚拟文件系统，采用 **C++ 内核引擎 + Python 可视化外壳** 的前后端分离架构，包含：
 - **Python GUI 界面** (`fs_ui/`)：可视化操作界面，支持工具栏按钮点击
 - **C++ 核心引擎** (`os_system/`)：文件系统底层实现，通过 stdin/stdout 与 GUI 通信
 
@@ -64,19 +100,12 @@ MYFS 是一个教学用虚拟文件系统，包含：
 | 总块数 | 32768 (每块 4KB，总计 128MB) |
 | 总 Inode 数 | 4096 |
 | 数据区起始块 | 1282 |
-| 数据区块数 | 512 (热图可见范围) |
+| 数据区块数 | 31486（32768 − 1282 开销区） |
 | 缓存容量 | 128 块 (LRU 回写策略) |
 | 成组链接组大小 | 100 |
 | 系统打开文件表 | 40 个槽位 |
 | 每用户最多打开文件 | 20 个 |
 | 目录项名称长度 | 14 字符 |
-
-### 启动方式
-
-```bash
-cd fs_ui
-python main.py
-```
 
 ### Inode 时间戳说明
 
