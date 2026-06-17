@@ -2382,30 +2382,7 @@ int main() {
                       << "use 'fsck' to detect, then 'recover' to fix" << std::endl;
 
         } else if (cmd == "crash") {
-            /*
-             * 模拟真实的系统崩溃：
-             *
-             * 1. 不刷缓存——脏数据块不会写回磁盘
-             * 2. 不标记 clean——超级块保持 DIRTY
-             * 3. 直接 exit——模拟断电/内核 panic
-             *
-             * 崩溃后磁盘上可能的状态：
-             * - 文件系统状态：DIRTY
-             * - 已通过 journal 提交的元数据：一致（journal 保证原子性）
-             * - 缓存中未刷回的数据块：丢失（但不会造成结构错误）
-             * - 超级块 free_blocks_count / free_inodes_count：与崩溃瞬间一致
-             *
-             * 恢复流程：
-             *   mount → 检测 DIRTY，不自动恢复
-             *   fsck  → 检查实际一致性（有 journal 保护通常为 0）
-             *   recover → journal 恢复 + block 恢复
-             *   fsck  → 验证恢复结果
-             *
-             * 注意：
-             * 如果想看到 fsck 检测到错误再被 recover 修复，
-             * 可以在 crash 前做批量写入操作——大量 dirty 缓存块
-             * 未刷盘时会增加不一致的可能性。
-             */
+          
             std::cout << "[WARN] simulated crash — cache not flushed, "
                       << "filesystem left DIRTY" << std::endl;
             return 1;
